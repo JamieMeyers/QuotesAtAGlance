@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:widget="http://www.netvibes.com/ns/" >
+	<head>
+		<meta name="author" content="Jamie Meyers" />
+		<meta name="description" content="Quotes at a Glance Widget" />
+		<meta name="version" content="0.1" />
+		<meta name="keywords" content="stocks, quotes, quote, portfolio, finance" />
+
+		<meta name="apiVersion" content="1.0" />
+		<meta name="inline" content="true" />
+		<meta name="autoRefresh" content="60" />
+		<meta name="debugMode" content="true" />
+
+		<link rel="stylesheet" type="text/css" href="http://www.netvibes.com/themes/uwa/style.css" />
+		<script type="text/javascript" src="http://www.netvibes.com/js/UWA/load.js.php?env=Standalone"></script>
+
+		<title>Quotes at a Glance</title>
+		<link rel="icon" type="image/png" href="http://www.netvibes.com/favicon.ico" />
+
+		<!-- Widget Preferences -->
+		<widget:preferences>
+			<preference name="newQuotes" type="text" label="Add a list (comma seperated) of new quotes" />
+			<preference name="symbolList" type="hidden" />
+		</widget:preferences>
+
+		<!-- Widget Styles -->
+		<style type="text/css">
+			#quoteTable {
+				display: none;
+			}
+
+			#disclaimer {
+				display: none;
+			}
+
+			td, th {
+				padding-right: 50px;
+				padding-bottom: 4px;
+			}
+
+			.black {
+				color: black;
+				padding-right: 5px;
+			}
+
+			.green {
+				color: green;
+				padding-right: 5px;
+			}
+
+			.red {
+				color: red;
+				padding-right: 5px;
+			}
+		</style>
+
+		<!-- Widget Code -->
+		<script type="text/javascript">
+			var baseURL = 'http://query.yahooapis.com/v1/public/yql?format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&q=select%20Symbol%2CLastTradePriceOnly%2CChange%2CPercentChange%20from%20yahoo.finance.quotes%20where%20symbol%20in%20($symbolList)';
+
+			// "Quotes" will be the container of our module's code.
+			var Quotes = {};
+
+			// Initialize the widget.
+			Quotes.initialize = function() {
+				widget.setTitle('Quotes at a Glance');
+
+				// Update the symbol list.
+				var newQuotes = widget.getValue('newQuotes');
+				var symbolList = widget.getValue('symbolList');
+				if (newQuotes) {
+					// Update the stock quotes to include double-quotes.
+					var newQuotesArray = newQuotes.split(',');
+					newQuotes = '';
+					for (var i = 0; i < newQuotesArray.length; i++) {
+						newQuotes += '"' + newQuotesArray[i].trim() + '"';
+						if (i < newQuotesArray.length - 1) {
+							newQuotes += ',';
+						}
+					}
+
+					if (symbolList) {
+						symbolList += ',' + newQuotes;
+					} else {
+						symbolList = newQuotes;
+					}
+
+					widget.setValue('symbolList', symbolList);
+				}
+				widget.setValue('newQuotes', '');
+
+				if (symbolList) {
+					// Create the URL.
+					var url = baseURL.replace('$symbolList', symbolList);
+
+					UWA.Data.getJson(url, Quotes.display);
+				} else {
+					Quotes.display(null);
+				}
+			}
+
+
+			// Display code
+			// @param json JSON data to display, or null.
+			Quotes.display = function(json) {
+				var table = widget.body.getElementById('quoteTable');
+				var tbody = table.getElementsByTagName("tbody")[0];
+
+				// Set the visibility and remove all children.
+				widget.body.getElementById('loading').style.display = 'none';
+				table.style.display = 'block';
+				widget.body.getElementById('disclaimer').style.display = 'block';
+				tbody.innerHTML = '';
+
+				if (json) {
+					// Yahoo Finance returns an object, not an array, if there is a single symbol.
+					var quotes;
+					if (json.query.count == 1) {
+						quotes = [ json.query.results.quote ];
+					} else {
+						quotes = json.query.results.quote
+					}
+
+					var listedSymbols = {};
+					for (var i = 0; i < quotes.length; i++) {
+						var symbol = quotes[i].Symbol;
+						var change = quotes[i].Change;
+						var row = widget.createElement("tr", { 'id' : symbol });
+
+						var cell = widget.createElement("td").setHTML('<a href="http://www.google.com/finance?q=' + symbol + '" target="_blank">' + symbol + '</a>');
+						row.appendChild(cell);
+
+						cell = widget.createElement("td").setHTML(quotes[i].LastTradePriceOnly);
+						row.appendChild(cell);
+
+						var cellClass = (change > 0) ? "green" : (change < 0) ? "red" : "black";
+						cell = widget.createElement("td", { "class" : cellClass }).setHTML(change + ' (' + quotes[i].PercentChange + ')');
+						row.appendChild(cell);
+
+						var removeLink = widget.createElement("a", { "href" : 'javascript:Quotes.removeSymbol(\'' + symbol + '\');' });
+						removeLink.innerHTML = "X";
+						cell = widget.createElement("td")
+						cell.appendChild(removeLink);
+						row.appendChild(cell);
+
+						tbody.appendChild(row);
+
+						listedSymbols[symbol] = true;
+					}
+
+					// Ensure all symbols are valid.
+					var symbolList = widget.getValue('symbolList');
+					if (symbolList) {
+						var symbolListArray = symbolList.split(',');
+						for (var i = 0; i < symbolListArray.length; i++) {
+							var symbol = symbolListArray[i].substr(1, symbolListArray[i].length - 2);
+							if (!listedSymbols[symbol]) {
+								Quotes.removeSymbol(symbol);
+							}
+						}
+					}
+				} else {
+					var row = widget.createElement("tr");
+					var cell = widget.createElement("td", { 'colspan' : 3 }).setHTML('Please add a symbol');
+					row.appendChild(cell);
+					tbody.appendChild(row);
+				}
+			}
+
+
+			// Remove a ticker symbol from the portfolio.
+			// @param symbolToRemove Ticker symbol to remove.
+			Quotes.removeSymbol = function(symbolToRemove) {
+				// Update the symbol list preference.
+				var symbolList = widget.getValue('symbolList');
+				if (symbolList) {
+					// Update the stock quotes to include double-quotes.
+					var symbolListArray = symbolList.split(',');
+					symbolList = '';
+					for (var i = 0; i < symbolListArray.length; i++) {
+						var symbol = symbolListArray[i].trim();
+						if (symbol == '"' + symbolToRemove + '"') {
+							continue;
+						}
+
+						if (symbolList.length > 0) {
+							symbolList += ',';
+						}
+						symbolList += symbol
+					}
+				}
+				widget.setValue('symbolList', symbolList);
+
+				// Refresh the widget, in case all symbols are removed.
+				setTimeout(Quotes.initialize, 500);
+			}
+
+			// Main code.
+			widget.onLoad = Quotes.initialize;
+
+			// Refresh will call onLoad.
+			widget.onRefresh = function() {
+				// Wait 500ms before initializing the code. Saving of preferences can be slow.
+				setTimeout(Quotes.initialize, 500);
+			}
+		</script>
+	</head>
+
+	<body>
+		<table id="quoteTable">
+			<thead>
+				<tr>
+					<th>Symbol</th>
+					<th>Price</th>
+					<th>Change (%)</th>
+					<th></th>
+				</tr>
+			</thead>
+
+			<tbody>
+			</tbody>
+		</table>
+		<p id="disclaimer"><i>Delayed at least 15 minutes unless otherwise indicated.</i></p>
+		<p id="loading">Loading stock qutotes...</p>
+	</body>
+</html>
