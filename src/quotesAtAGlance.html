@@ -57,42 +57,47 @@
 
 		<!-- Widget Code -->
 		<script type="text/javascript">
-			var baseURL = 'http://query.yahooapis.com/v1/public/yql?format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&q=select%20Symbol%2CLastTradePriceOnly%2CChange%2CPercentChange%20from%20yahoo.finance.quotes%20where%20symbol%20in%20($symbolList)';
+			var baseURL = "http://query.yahooapis.com/v1/public/yql?format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&q=select%20Symbol%2CLastTradePriceOnly%2CChange%2CPercentChange%20from%20yahoo.finance.quotes%20where%20symbol%20in%20($symbolList)";
 
 			// "Quotes" will be the container of our module's code.
 			var Quotes = {};
 
 			// Initialize the widget.
 			Quotes.initialize = function() {
-				widget.setTitle('Quotes at a Glance');
+				widget.setTitle("Quotes at a Glance");
 
 				// Update the symbol list.
-				var newQuotes = widget.getValue('newQuotes');
-				var symbolList = widget.getValue('symbolList');
+				var newQuotes = widget.getValue("newQuotes");
+				var symbolList = widget.getValue("symbolList");
+				if (symbolList == "") {
+					symbolList = "[]";
+				}
+
+				var symbolObj = JSON.parse(symbolList);
 				if (newQuotes) {
-					// Update the stock quotes to include double-quotes.
-					var newQuotesArray = newQuotes.split(',');
-					newQuotes = '';
+					var newQuotesArray = newQuotes.split(",");
 					for (var i = 0; i < newQuotesArray.length; i++) {
-						newQuotes += '"' + newQuotesArray[i].trim() + '"';
-						if (i < newQuotesArray.length - 1) {
-							newQuotes += ',';
+						var value = newQuotesArray[i].trim().toUpperCase();
+						if (symbolObj.indexOf(value) == -1) {
+							symbolObj.push(value);
 						}
 					}
 
-					if (symbolList) {
-						symbolList += ',' + newQuotes;
-					} else {
-						symbolList = newQuotes;
+					widget.setValue("symbolList", JSON.stringify(symbolObj));
+					widget.setValue("newQuotes", "");
+				}
+
+				if (symbolObj && symbolObj.length && symbolObj.length > 0) {
+					var symbolStr = "";
+					for (var i = 0; i < symbolObj.length; i++) {
+						symbolStr += "\"" + symbolObj[i] + "\"";
+						if (i < symbolObj.length - 1) {
+							symbolStr += ",";
+						}
 					}
 
-					widget.setValue('symbolList', symbolList);
-				}
-				widget.setValue('newQuotes', '');
-
-				if (symbolList) {
 					// Create the URL.
-					var url = baseURL.replace('$symbolList', symbolList);
+					var url = baseURL.replace("$symbolList", symbolStr);
 
 					UWA.Data.getJson(url, Quotes.display);
 				} else {
@@ -104,14 +109,14 @@
 			// Display code
 			// @param json JSON data to display, or null.
 			Quotes.display = function(json) {
-				var table = widget.body.getElementById('quoteTable');
+				var table = widget.body.getElementById("quoteTable");
 				var tbody = table.getElementsByTagName("tbody")[0];
 
 				// Set the visibility and remove all children.
-				widget.body.getElementById('loading').style.display = 'none';
-				table.style.display = 'block';
-				widget.body.getElementById('disclaimer').style.display = 'block';
-				tbody.innerHTML = '';
+				widget.body.getElementById("loading").style.display = "none";
+				table.style.display = "block";
+				widget.body.getElementById("disclaimer").style.display = "block";
+				tbody.innerHTML = "";
 
 				if (json) {
 					// Yahoo Finance returns an object, not an array, if there is a single symbol.
@@ -126,19 +131,24 @@
 					for (var i = 0; i < quotes.length; i++) {
 						var symbol = quotes[i].Symbol;
 						var change = quotes[i].Change;
-						var row = widget.createElement("tr", { 'id' : symbol });
+						var row = widget.createElement("tr", { "id" : symbol });
 
-						var cell = widget.createElement("td").setHTML('<a href="http://www.google.com/finance?q=' + symbol + '" target="_blank">' + symbol + '</a>');
+						var cell = widget.createElement("td").setHTML("<a href=\"http://www.google.com/finance?q=" + symbol + "\" target=\"_blank\">" + symbol + "</a>");
 						row.appendChild(cell);
 
 						cell = widget.createElement("td").setHTML(quotes[i].LastTradePriceOnly);
 						row.appendChild(cell);
 
 						var cellClass = (change > 0) ? "green" : (change < 0) ? "red" : "black";
-						cell = widget.createElement("td", { "class" : cellClass }).setHTML(change + ' (' + quotes[i].PercentChange + ')');
+						cell = widget.createElement("td", {
+								"class" : cellClass
+						}).setHTML(change + " (" + quotes[i].PercentChange + ")");
 						row.appendChild(cell);
 
-						var removeLink = widget.createElement("a", { "href" : 'javascript:Quotes.removeSymbol(\'' + symbol + '\');' });
+						var removeLink = widget.createElement("a", {
+								"href" : "#",
+								"onclick" : "widget.removeSymbol(\"" + symbol + "\"); return false"
+						});
 						removeLink.innerHTML = "X";
 						cell = widget.createElement("td")
 						cell.appendChild(removeLink);
@@ -150,51 +160,53 @@
 					}
 
 					// Ensure all symbols are valid.
-					var symbolList = widget.getValue('symbolList');
-					if (symbolList) {
-						var symbolListArray = symbolList.split(',');
-						for (var i = 0; i < symbolListArray.length; i++) {
-							var symbol = symbolListArray[i].substr(1, symbolListArray[i].length - 2);
-							if (!listedSymbols[symbol]) {
+					var symbolList = widget.getValue("symbolList");
+					if (symbolList == "") {
+						symbolList = "[]";
+					}
+
+					var symbolObj = JSON.parse(symbolList);
+					if (symbolObj) {
+						for (var i = 0; i < symbolObj.length; i++) {
+							if (!listedSymbols[symbolObj[i]]) {
 								Quotes.removeSymbol(symbol);
 							}
 						}
 					}
 				} else {
 					var row = widget.createElement("tr");
-					var cell = widget.createElement("td", { 'colspan' : 3 }).setHTML('Please add a symbol');
+					var cell = widget.createElement("td", {
+							"class" : "red",
+							"colspan" : 3
+					}).setHTML("Please add a symbol");
 					row.appendChild(cell);
 					tbody.appendChild(row);
 				}
 			}
 
-
 			// Remove a ticker symbol from the portfolio.
 			// @param symbolToRemove Ticker symbol to remove.
 			Quotes.removeSymbol = function(symbolToRemove) {
-				// Update the symbol list preference.
-				var symbolList = widget.getValue('symbolList');
-				if (symbolList) {
-					// Update the stock quotes to include double-quotes.
-					var symbolListArray = symbolList.split(',');
-					symbolList = '';
-					for (var i = 0; i < symbolListArray.length; i++) {
-						var symbol = symbolListArray[i].trim();
-						if (symbol == '"' + symbolToRemove + '"') {
-							continue;
-						}
+				var symbolList = widget.getValue("symbolList");
+				if (symbolList == "") {
+					symbolList = "[]";
+				}
 
-						if (symbolList.length > 0) {
-							symbolList += ',';
-						}
-						symbolList += symbol
+				var symbolObj = JSON.parse(symbolList);
+				if (symbolObj) {
+					var index = symbolObj.indexOf(symbolToRemove.toUpperCase());
+					if (index != -1) {
+						symbolObj.splice(index, 1);
+
+						widget.setValue("symbolList", JSON.stringify(symbolObj));
+
+						// Refresh the widget, in case all symbols are removed.
+						setTimeout(Quotes.initialize, 500);
 					}
 				}
-				widget.setValue('symbolList', symbolList);
-
-				// Refresh the widget, in case all symbols are removed.
-				setTimeout(Quotes.initialize, 500);
 			}
+
+			widget.removeSymbol = Quotes.removeSymbol;
 
 			// Main code.
 			widget.onLoad = Quotes.initialize;
