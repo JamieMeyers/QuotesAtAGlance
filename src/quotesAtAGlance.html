@@ -5,11 +5,11 @@
 		<meta name="author" content="Jamie Meyers" />
 		<meta name="description" content="Quotes at a Glance Widget" />
 		<meta name="version" content="0.1" />
-		<meta name="keywords" content="stocks, quotes, quote, portfolio, finance" />
+		<meta name="keywords" content="stocks, quotes, quote, portfolio, finance, ticker" />
 
 		<meta name="apiVersion" content="1.0" />
 		<meta name="inline" content="true" />
-		<meta name="autoRefresh" content="2" />
+		<meta name="autoRefresh" content="1" />
 		<meta name="debugMode" content="true" />
 
 		<link rel="stylesheet" type="text/css" href="http://www.netvibes.com/themes/uwa/style.css" />
@@ -69,7 +69,7 @@
 				// Update the symbol list.
 				var newQuotes = widget.getValue("newQuotes");
 				var symbolList = widget.getValue("symbolList");
-				if (symbolList == "") {
+				if (!symbolList) {
 					symbolList = "[]";
 				}
 
@@ -161,7 +161,7 @@
 
 					// Ensure all symbols are valid.
 					var symbolList = widget.getValue("symbolList");
-					if (symbolList == "") {
+					if (!symbolList) {
 						symbolList = "[]";
 					}
 
@@ -188,7 +188,7 @@
 			// @param symbolToRemove Ticker symbol to remove.
 			Quotes.removeSymbol = function(symbolToRemove) {
 				var symbolList = widget.getValue("symbolList");
-				if (symbolList == "") {
+				if (!symbolList) {
 					symbolList = "[]";
 				}
 
@@ -234,6 +234,6 @@
 			</tbody>
 		</table>
 		<p id="disclaimer"><i>Delayed at least 15 minutes unless otherwise indicated.</i></p>
-		<p id="loading">Loading stock qutotes...</p>
+		<p id="loading">Loading stock quotes...</p>
 	</body>
 </html>
